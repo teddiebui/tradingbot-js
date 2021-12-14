@@ -295,8 +295,8 @@ function _mdmd(timeframe, market, a_list) {
 	a_list.forEach((element)=> {
 		html = "" +
 		'<div class="table-row">' +
-		'<div class="symbol w-50">' + element.symbol +'</div>' +
-		'<div class="change w-50">' + element.change +'</div>' +
+		`<div class="symbol w-50"> +${element.symbol}%</div>` +
+		`<div class="change w-50"> +${element.change}%</div>` +
 		'</div>'
 		$(`#${market} .${timeframe} .table-body`).append(html)
 	})
