@@ -146,124 +146,63 @@ function myWebsocket(callback) {
 		if (_websocket_count == 0) {
 
 			//SET UP VARIABLE
-			list_15m = []
-			list_1h = []
-			list_4h = []
-
-			futures_list_15m = []
-			futures_list_1h = []
-			futures_list_4h = []
+			spot = {}
+			futures = {}
 
 			//TODO: DO THE CHECKING (EVERY SECOND INTERVAL)
 			filtered_data = data.filter((ticker)=> {return ticker['s'].endsWith("USDT")}) 
 
-			for (ticker of filtered_data) {
+			for (let ticker of filtered_data) {
 
 				let symbol = ticker['s']
-				eventTime = ticker['E'] //evemt time
-				_close = parseFloat(ticker['c'])
-				_open = parseFloat(ticker['o'])
-				_high = parseFloat(ticker['h'])
-				_low  = parseFloat(ticker['l'])
-				
+				let kline = klines[symbol]
+
 				//CONTINUE LOOP IF SYMBOL NOT IN LIST
-				if (symbols.indexOf(symbol) == -1) {
-					continue
+				if (symbols.indexOf(symbol) == -1) continue
+
+				candle = {
+					time: ticker['E'],
+					open: parseFloat(ticker['o']),
+					high: parseFloat(ticker['h']),
+					low: parseFloat(ticker['l']),
+					close: parseFloat(ticker['c']),
+					volume: 0
 				}
+				for (let key in kline) {
+					//key: "15m", "1h", "4h" ...
+					//variable initiation
+					last_candle = kline[key][kline[key].length - 1]
+					if (spot[key] == undefined) spot[key] = []
+					if (futures[key] == undefined) futures[key] = []
+					
+					//MERGE KLINE
+					merge_candle_to_kline(copy(candle), last_candle)
 
-				candle_15m = klines[symbol]['15m']
-				candle_1h = klines[symbol]['1h']
-				candle_4h = klines[symbol]['4h']
+					//CHECK CHANGE
+					change = check_change(last_candle)
+					
 
-				//MERGE KLINE TO KLINES
-				//MERGE KLINE 15M
-				kline_15m = klines[symbol]['15m'][klines[symbol]['15m'].length-1]
-				kline_15m['high'] = _close > kline_15m['high'] ? _close : kline_15m['high']
-				kline_15m['low'] = _close < kline_15m['low'] ? _close : kline_15m['low']
-				kline_15m['close'] = _close
-
-				//MERGE KLINE 1h
-				kline_1h = klines[symbol]['1h'][klines[symbol]['1h'].length-1]
-				kline_1h['high'] = _close > kline_1h['high'] ? _close : kline_1h['high']
-				kline_1h['low'] = _close < kline_1h['low'] ? _close : kline_1h['low']
-				kline_1h['close'] = _close
-
-				//MERGE KLINE 4h
-				kline_4h = klines[symbol]['4h'][klines[symbol]['4h'].length-1]
-				kline_4h['high'] = _close > kline_4h['high'] ? _close : kline_4h['high']
-				kline_4h['low'] = _close < kline_4h['low'] ? _close : kline_4h['low']
-				kline_4h['close'] = _close
-
-
-				//DO THE LOGIC
-				change_15m = (kline_15m['close']/kline_15m['open']*100 - 100).toFixed(2)
-				if (change_15m > 5) {
-					obj = {
-						symbol: symbol,
-						change: parseFloat(change_15m)
-					}
-					list_15m.push(obj)
-
-					//FUTURES
-					if (futures_symbols.indexOf(symbol) != -1) {
-						futures_list_15m.push(obj)
-					}
-				}
-
-				change_1h = (kline_1h['close']/kline_1h['open']*100 - 100).toFixed(2)
-				if (change_1h > 5) {
-					obj={symbol: symbol,
-						change: parseFloat(change_1h)}
-					list_1h.push(obj)
-
-					//FUTURES
-					if (futures_symbols.indexOf(symbol) != -1) {
-						futures_list_1h.push(obj)
+					if (change) {
+						spot[key].push(change)
+						if (futures_symbols.indexOf(symbol) != -1) futures[key].push(change)
 					}
 
-				}
-
-				change_4h = (kline_4h['close']/kline_4h['open']*100 - 100).toFixed(2)
-				if (change_4h > 5) {
-					obj = {symbol:symbol,
-						change: parseFloat(change_4h)}
-					list_4h.push(obj)
-
-
-					//FUTURES
-
-					if (futures_symbols.indexOf(symbol) != -1) {
-						console.log("OK TIM THAY ROI, ", symbol)
-						futures_list_4h.push(obj)
-					}
-
+					
 				}
 			}
 			
-			//DEBUG
-			console.log(klines['BTCUSDT']['15m'][klines['BTCUSDT']['15m'].length-1])
-			console.log("--------SPOT----------")
-			console.log(list_15m)
-			console.log(list_1h)
-			console.log(list_4h)
-			console.log("----------FUTURES--------")
-			console.log(futures_list_15m)
-			console.log(futures_list_1h)
-			console.log(futures_list_4h)
-
 			//DISPLAY TO HTML
-
-			_mdmd("15m", "spot", list_15m)
-			_mdmd("1h", "spot", list_1h)
-			_mdmd("4h", "spot", list_4h)
-
-			_mdmd("15m", "futures", futures_list_15m)
-			_mdmd("1h", "futures", futures_list_1h)
-			_mdmd("4h", "futures", futures_list_4h)
-
+			console.log("-----SPOT----")	
+			for (let key in spot) {
+				console.log(spot[key])
+				_mdmd(key, "spot", spot[key])
+			}
+			console.log("-----FUTURES----")
+			for (let key in futures) {
+				console.log(futures[key])
+				_mdmd(key, "futures", futures[key])
+			}
 		}
-
-		
 
 		_websocket_count++
 		if (_websocket_count == 3) {
@@ -285,8 +224,22 @@ function myWebsocket(callback) {
 	return socket
 }
 
-function _sub_merge_kline(_close, kline) {
 
+function check_change(last_kline) {
+	change = (last_kline['close']/last_kline['open']*100 - 100).toFixed(2)
+	
+	if (change > 5) {
+		obj = {}
+		obj.symbol = symbol
+		obj.change = change
+
+		return obj
+	}
+}
+function merge_candle_to_kline(kline, last_candle) {
+	last_candle['high'] = kline.close > last_candle['high'] ? kline.close : last_candle['high']
+	last_candle['low'] = kline.close < last_candle['low'] ? kline.close : last_candle['low']
+	last_candle['close'] = kline.close
 }
 
 function _mdmd(timeframe, market, a_list) {
@@ -295,25 +248,13 @@ function _mdmd(timeframe, market, a_list) {
 	a_list.forEach((element)=> {
 		html = "" +
 		'<div class="table-row">' +
-		`<div class="symbol w-50"> +${element.symbol}%</div>` +
+		`<div class="symbol w-50"> ${element.symbol}</div>` +
 		`<div class="change w-50"> +${element.change}%</div>` +
 		'</div>'
 		$(`#${market} .${timeframe} .table-body`).append(html)
 	})
 }
 
-
-function _asdasdasd() {
-	for (key in klines) {
-		html = "" +
-		'<div class="table d-flex flex-column" id="'+ key +'">' + 
-		' <div class="table-header">'+ key+'</div>' +
-		'<div class="table-body text-center">' + '</div></div>'
-
-		$("#main-body").append(html)
-
-	}
-}
 
 function ajax(url, resolve, reject) {
 	return $.ajax({
