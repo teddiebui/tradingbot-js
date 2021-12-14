@@ -2,6 +2,7 @@ $(document).ready(()=>{
 	promises = []
 	console.log("hello")
 	symbols = []
+	futures_symbols = []
 	klines = {}
 	count = 0
 	_websocket_count = 0
@@ -29,7 +30,27 @@ $(document).ready(()=>{
 					}
 			}
 			console.log("ok done: ", symbols)
-			resolve()
+
+
+			ajax("https://fapi.binance.com/fapi/v1/ticker/price", (data) => {
+
+				for (let i of data) {
+					let symbol = i['symbol']
+					if (symbols.indexOf(symbol) != -1) {
+						futures_symbols.push(symbol)
+					}
+				}
+
+
+				console.log("FUTURES SYMBOL DONE:", futures_symbols)
+				console.log(futures_symbols.length)
+
+
+
+				resolve()
+
+			}, reject)
+			
 
 		})
 	})
@@ -129,6 +150,10 @@ function myWebsocket(callback) {
 			list_1h = []
 			list_4h = []
 
+			futures_list_15m = []
+			futures_list_1h = []
+			futures_list_4h = []
+
 			//TODO: DO THE CHECKING (EVERY SECOND INTERVAL)
 			filtered_data = data.filter((ticker)=> {return ticker['s'].endsWith("USDT")}) 
 
@@ -173,73 +198,68 @@ function myWebsocket(callback) {
 				//DO THE LOGIC
 				change_15m = (kline_15m['close']/kline_15m['open']*100 - 100).toFixed(2)
 				if (change_15m > 5) {
-					list_15m.push({
+					obj = {
 						symbol: symbol,
-						change: parseFloat(change_15m)})
+						change: parseFloat(change_15m)
+					}
+					list_15m.push(obj)
+
+					//FUTURES
+					if (futures_symbols.indexOf(symbol) != -1) {
+						futures_list_15m.push(obj)
+					}
 				}
 
 				change_1h = (kline_1h['close']/kline_1h['open']*100 - 100).toFixed(2)
 				if (change_1h > 5) {
-					list_1h.push({
-						symbol: symbol,
-						change: parseFloat(change_1h)})
+					obj={symbol: symbol,
+						change: parseFloat(change_1h)}
+					list_1h.push(obj)
+
+					//FUTURES
+					if (futures_symbols.indexOf(symbol) != -1) {
+						futures_list_1h.push(obj)
+					}
+
 				}
 
 				change_4h = (kline_4h['close']/kline_4h['open']*100 - 100).toFixed(2)
 				if (change_4h > 5) {
-					list_4h.push({
-						symbol:symbol,
-						change: parseFloat(change_4h)})
+					obj = {symbol:symbol,
+						change: parseFloat(change_4h)}
+					list_4h.push(obj)
+
+
+					//FUTURES
+
+					if (futures_symbols.indexOf(symbol) != -1) {
+						console.log("OK TIM THAY ROI, ", symbol)
+						futures_list_4h.push(obj)
+					}
+
 				}
 			}
 			
 			//DEBUG
 			console.log(klines['BTCUSDT']['15m'][klines['BTCUSDT']['15m'].length-1])
+			console.log("--------SPOT----------")
 			console.log(list_15m)
 			console.log(list_1h)
 			console.log(list_4h)
-			console.log("------------------")
+			console.log("----------FUTURES--------")
+			console.log(futures_list_15m)
+			console.log(futures_list_1h)
+			console.log(futures_list_4h)
 
 			//DISPLAY TO HTML
 
-			if (list_15m.length > 0) {
-				$("#15m .table-body").html("")
+			_mdmd("15m", "spot", list_15m)
+			_mdmd("1h", "spot", list_1h)
+			_mdmd("4h", "spot", list_4h)
 
-				list_15m.forEach((element)=> {
-					html = "" +
-					'<div class="table-row">' +
-					'<div class="symbol w-50">' + element.symbol +'</div>' +
-					'<div class="change w-50">' + element.change +'</div>' +
-					'</div>'
-					$("#15m .table-body").append(html)
-				})
-			}
-
-			if (list_1h.length > 0) {
-				$("#1h .table-body").html("");
-
-				list_1h.forEach((element)=> {
-					html = "" +
-					'<div class="table-row">' +
-					'<div class="symbol w-50">' + element.symbol +'</div>' +
-					'<div class="change w-50">' + element.change +'</div>' +
-					'</div>'
-					$("#1h .table-body").append(html)
-				})
-			}
-
-			if (list_4h.length > 0) {
-				$("#4h .table-body").html("");
-
-				list_4h.forEach((element)=> {
-					html = "" +
-					'<div class="table-row">' +
-					'<div class="symbol w-50">' + element.symbol +'</div>' +
-					'<div class="change w-50">' + element.change +'</div>' +
-					'</div>'
-					$("#4h .table-body").append(html)
-				})
-			}
+			_mdmd("15m", "futures", futures_list_15m)
+			_mdmd("1h", "futures", futures_list_1h)
+			_mdmd("4h", "futures", futures_list_4h)
 
 		}
 
@@ -268,6 +288,20 @@ function myWebsocket(callback) {
 function _sub_merge_kline(_close, kline) {
 
 }
+
+function _mdmd(timeframe, market, a_list) {
+	$(`#${market} .${timeframe} .table-body`).html("");
+
+	a_list.forEach((element)=> {
+		html = "" +
+		'<div class="table-row">' +
+		'<div class="symbol w-50">' + element.symbol +'</div>' +
+		'<div class="change w-50">' + element.change +'</div>' +
+		'</div>'
+		$(`#${market} .${timeframe} .table-body`).append(html)
+	})
+}
+
 
 function _asdasdasd() {
 	for (key in klines) {
