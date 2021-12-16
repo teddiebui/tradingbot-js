@@ -168,8 +168,8 @@ function myWebsocket(callback) {
 					close: parseFloat(ticker['c']),
 					volume: 0
 				}
+				
 				for (let key in kline) {
-					//key: "15m", "1h", "4h" ...
 					//variable initiation
 					last_candle = kline[key][kline[key].length - 1]
 					if (spot[key] == undefined) spot[key] = []
@@ -179,7 +179,7 @@ function myWebsocket(callback) {
 					merge_candle_to_kline(copy(candle), last_candle)
 
 					//CHECK CHANGE
-					change = check_change(last_candle)
+					change = check_change(symbol, last_candle)
 					
 
 					if (change) {
